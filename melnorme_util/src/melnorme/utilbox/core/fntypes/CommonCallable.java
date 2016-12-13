@@ -8,12 +8,10 @@
  * Contributors:
  *     Bruno Medeiros - initial API and implementation
  *******************************************************************************/
-package melnorme.utilbox.concurrency;
+package melnorme.utilbox.core.fntypes;
 
-public interface ICancellableTask extends ICancellable, Runnable {
-	
-	/** Execute this task. */
-	@Override
-	void run();
+import melnorme.utilbox.core.CommonException;
+
+public interface CommonCallable<RET> extends Callable2<RET, CommonException> {
 	
 }
