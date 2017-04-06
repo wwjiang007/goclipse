@@ -8,30 +8,17 @@
  * Contributors:
  *     Bruno Medeiros - initial API and implementation
  *******************************************************************************/
-package melnorme.utilbox.concurrency;
+package melnorme.lang.ide.core.operations;
 
-import melnorme.utilbox.concurrency.ICancelMonitor.CancelMonitor;
+import melnorme.utilbox.status.StatusLevel;
 
-public abstract class MonitorRunnableFuture<RET> 
-	extends MonitorTaskFuture<RET>
-	implements IRunnableFuture2<RET>
-{
+public interface IStatusMessageHandler {
 	
-	public MonitorRunnableFuture() {
-		super();
-	}
+	/** Report a message to the user. */
+	void notifyMessage(String msgId, StatusLevel statusLevel, String title, String message);
 	
-	public MonitorRunnableFuture(CancelMonitor cancelMonitor) {
-		super(cancelMonitor);
-	}
-	
-	public MonitorRunnableFuture(ICancelMonitor cancelMonitor) {
-		super(cancelMonitor);
-	}
-	
-	@Override
-	public void run() {
-		runFuture();
+	default void notifyMessage(StatusLevel statusLevel, String title, String message) {
+		notifyMessage(null, statusLevel, title, message);
 	}
 	
 }

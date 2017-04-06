@@ -8,33 +8,28 @@
  * Contributors:
  *     Bruno Medeiros - initial API and implementation
  *******************************************************************************/
-package melnorme.utilbox.concurrency;
+package melnorme.lang.tooling.common.ops;
 
 import static melnorme.utilbox.core.Assert.AssertNamespace.assertNotNull;
 
-import melnorme.utilbox.core.fntypes.Callable2;
+import melnorme.lang.tooling.common.ops.IOperationMonitor.DelegatingOperationMonitor;
 
-/**
- * A simple future, completable by means of executing the {@link #run()} method.
- */
-public class RunnableFuture2<RET> extends AbstractTaskFuture2<RET> 
-	implements IRunnableFuture2<RET>
-{
+public class BiDelegatingOperationMonitor extends DelegatingOperationMonitor {
 	
-	protected final Callable2<RET, RuntimeException> callable;
+	protected final CancelMonitor secondCancelMonitor;
 	
-	public RunnableFuture2(Callable2<RET, RuntimeException> callable) {
-		this.callable = assertNotNull(callable);
+	public BiDelegatingOperationMonitor(IOperationMonitor om) {
+		this(om, new CancelMonitor());
+	}
+	
+	public BiDelegatingOperationMonitor(IOperationMonitor om, CancelMonitor cancelMonitor) {
+		super(om);
+		this.secondCancelMonitor = assertNotNull(cancelMonitor);
 	}
 	
 	@Override
-	public void run() {
-		runFuture();
-	}
-	
-	@Override
-	protected RET internalInvoke() {
-		return callable.invoke();
+	public boolean isCancelled() {
+		return super.isCancelled() || secondCancelMonitor.isCancelled();
 	}
 	
 }

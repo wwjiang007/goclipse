@@ -13,7 +13,6 @@ package melnorme.lang.ide.ui.tools.console;
 import static melnorme.utilbox.core.Assert.AssertNamespace.assertFail;
 import static melnorme.utilbox.core.Assert.AssertNamespace.assertNotNull;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -23,14 +22,15 @@ import org.eclipse.core.resources.IProject;
 import org.eclipse.debug.core.DebugPlugin;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Shell;
-import org.eclipse.ui.console.IOConsoleOutputStream;
 
 import melnorme.lang.ide.core.ILangOperationsListener;
 import melnorme.lang.ide.core.utils.process.AbstractRunProcessTask.ProcessStartHelper;
 import melnorme.lang.ide.ui.LangImages;
 import melnorme.lang.ide.ui.LangUIPlugin_Actual;
+import melnorme.lang.ide.ui.tools.console.ToolsConsole.IOConsoleOutputStreamExt;
 import melnorme.lang.ide.ui.utils.ConsoleUtils;
-import melnorme.lang.ide.ui.utils.StatusMessageDialog;
+import melnorme.lang.ide.ui.utils.StatusMessageDialog2;
+import melnorme.lang.ide.ui.utils.StatusMessageDialogWithIgnore;
 import melnorme.lang.ide.ui.utils.UIOperationsStatusHandler;
 import melnorme.lang.ide.ui.utils.WorkbenchUtils;
 import melnorme.util.swt.SWTUtil;
@@ -38,10 +38,13 @@ import melnorme.utilbox.core.CommonException;
 import melnorme.utilbox.misc.ArrayUtil;
 import melnorme.utilbox.misc.StringUtil;
 import melnorme.utilbox.process.ExternalProcessNotifyingHelper.IProcessOutputListener;
+import melnorme.utilbox.status.StatusException;
 import melnorme.utilbox.status.StatusLevel;
 
 
 public abstract class LangOperationsConsoleUIHandler implements ILangOperationsListener {
+	
+	public static final String MSG_IgnoreSimilar = "Ignore similar errors during this session.";
 	
 	public LangOperationsConsoleUIHandler() {
 		super();
@@ -57,15 +60,21 @@ public abstract class LangOperationsConsoleUIHandler implements ILangOperationsL
 				if(msgId != null && mutedMessages.contains(msgId)) { 
 					return;
 				}
+				StatusException statusMessage = new StatusException(statusLevel.toSeverity(), message);
+				
 				Shell shell = WorkbenchUtils.getActiveWorkbenchShell();
-				StatusMessageDialog dialog = new StatusMessageDialog(shell, title, statusLevel, message) {
-					@Override
-					protected void setIgnoreFutureMessages() {
-						if(msgId != null) {
+				StatusMessageDialog2 dialog;
+				
+				if(msgId == null) {
+					dialog = new StatusMessageDialog2(shell, title, statusMessage);
+				} else {
+					dialog = new StatusMessageDialogWithIgnore(shell, title, statusMessage, MSG_IgnoreSimilar) {
+						@Override
+						protected void setIgnoreFutureMessages() {
 							mutedMessages.add(msgId);
-						}
+						};
 					};
-				};
+				}
 				
 				if(UIOperationsStatusHandler.isIgnoringHandling()) {
 					Display.getCurrent().asyncExec(
@@ -133,7 +142,7 @@ public abstract class LangOperationsConsoleUIHandler implements ILangOperationsL
 	}
 	
 	protected OperationConsoleMonitor createConsoleHandler(ProcessStartKind kind, ToolsConsole console, 
-			IOConsoleOutputStream stdOut, IOConsoleOutputStream stdErr) {
+			IOConsoleOutputStreamExt stdOut, IOConsoleOutputStreamExt stdErr) {
 		return new OperationConsoleMonitor(kind, console, stdOut, stdErr);
 	}
 	
@@ -143,14 +152,14 @@ public abstract class LangOperationsConsoleUIHandler implements ILangOperationsL
 		
 		protected final ProcessStartKind kind;
 		protected final ToolsConsole console;
-		protected final IOConsoleOutputStream infoOut;
-		protected final IOConsoleOutputStream stdOut;
-		protected final IOConsoleOutputStream stdErr;
+		protected final IOConsoleOutputStreamExt infoOut;
+		protected final IOConsoleOutputStreamExt stdOut;
+		protected final IOConsoleOutputStreamExt stdErr;
 		
 		public boolean errorOnNonZeroExitValueForBuild = false;
 		
 		public OperationConsoleMonitor(ProcessStartKind kind, ToolsConsole console, 
-				IOConsoleOutputStream stdOut, IOConsoleOutputStream stdErr) {
+				IOConsoleOutputStreamExt stdOut, IOConsoleOutputStreamExt stdErr) {
 			this.kind = assertNotNull(kind);
 			this.console = assertNotNull(console);
 			this.infoOut = console.infoOut;
@@ -169,12 +178,8 @@ public abstract class LangOperationsConsoleUIHandler implements ILangOperationsL
 		{
 			String infoPrefaceText = getPrefaceText(prefixText, suffixText, pb);
 			
-			try {
-				if(infoPrefaceText != null) {
-					infoOut.write(infoPrefaceText);
-				}
-			} catch (IOException e) {
-				// Do nothing
+			if(infoPrefaceText != null) {
+				infoOut.write(infoPrefaceText);
 			}
 			
 			connectProcessOutputListener(processStartHelper);
@@ -190,12 +195,7 @@ public abstract class LangOperationsConsoleUIHandler implements ILangOperationsL
 				if(cause != null) {
 					text += "   Reason: " + cause.getMessage() + "\n";
 				}
-				try {
-					infoOut.write(text);
-				} catch (IOException e) {
-					// Do nothing
-				}
-				
+				infoOut.write(text);
 			}
 		}
 		
@@ -217,12 +217,8 @@ public abstract class LangOperationsConsoleUIHandler implements ILangOperationsL
 				console.activate();
 			}
 			
-			try {
-				infoOut.write(getProcessTerminatedMessage(exitCode));
-				infoOut.flush();
-			} catch (IOException e) {
-				// Ignore
-			}
+			infoOut.write(getProcessTerminatedMessage(exitCode));
+			infoOut.flush();
 		}
 		
 		@Override
